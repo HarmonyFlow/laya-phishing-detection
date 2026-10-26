@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1e2226">
+<title>Laya Phishing Detection</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #1e2226;
+  --surface: #252a2f;
+  --ink: #e8ebee;
+  --muted: #9ba4ad;
+  --line: #333a41;
+  --accent: yellowgreen;
+  --danger: #e8a08c;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14.5px/1.7 var(--mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #3a4a45;
+}
+
+main {
+  max-width: 38rem;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.model-status {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.lead {
+  margin: 0.35rem 0 1.75rem;
+  color: var(--muted);
+}
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  height: clamp(7rem, 24vh, 11rem);
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  caret-color: var(--accent);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+textarea:focus {
+  outline: 0;
+  border-color: var(--accent);
+  background: #2a3036;
+}
+
+textarea::placeholder {
+  color: #6f7883;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+button[type="submit"] {
+  padding: 0.6rem 1.35rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #14211c;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+
+button[type="submit"]:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+button[type="submit"]:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button[type="submit"]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+button[type="submit"]:disabled {
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--line);
+  cursor: default;
+}
+
+.status {
+  display: block;
+  margin-top: 0.5rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.status:empty {
+  display: none;
+}
+
+.alert {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(232, 160, 140, 0.3);
+  border-radius: 8px;
+  background: rgba(232, 160, 140, 0.09);
+  color: var(--danger);
+}
+
+.result {
+  margin-top: 1.75rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.65rem;
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.score-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.score-value {
+  color: var(--ink);
+}
+
+.meter {
+  position: relative;
+  height: 6px;
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #31373e;
+}
+
+.meter::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, yellowgreen, red);
+  clip-path: inset(0 calc(100% - var(--score, 0%)) 0 0);
+}
+
+.meta {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 1.25rem 1.25rem 1.5rem;
+  }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Laya Phishing Detection</h1>
+    <p class="model-status" id="status" aria-live="polite">Local model: loading</p>
+  </header>
+  <p class="lead">Paste an email. Laya estimates the phishing risk locally.</p>
+  <p class="alert" id="error" role="alert" hidden></p>
+  <form id="form">
+    <label for="text">Email</label>
+    <textarea id="text" rows="7" maxlength="12000" spellcheck="true" placeholder="Paste the full email here, including links if you have them."></textarea>
+    <div class="actions">
+      <button id="submit" type="submit" disabled>Analyze</button>
+    </div>
+    <span class="status" id="hint" role="status"></span>
+  </form>
+  <section class="result-region" aria-live="polite">
+    <div class="result" id="result" hidden>
+      <p class="score">
+        <span class="score-label">Phishing risk</span>
+        <span class="score-value" id="score"></span>
+      </p>
+      <div class="meter" aria-hidden="true"></div>
+      <p class="meta" id="meta"></p>
+    </div>
+  </section>
+</main>
+<script>
+const STATUS_POLL_LOADING_MS = 2000;
+const STATUS_POLL_READY_MS = 30000;
+const LEVEL_LABELS = { low: "Low", medium: "Medium", high: "High" };
+
+const byId = (id) => document.getElementById(id);
+const form = byId("form");
+const emailInput = byId("text");
+const submitButton = byId("submit");
+const statusLine = byId("status");
+const hintLine = byId("hint");
+const errorBox = byId("error");
+const resultBox = byId("result");
+const scoreValue = byId("score");
+const metaLine = byId("meta");
+
+let ready = false;
+let busy = false;
+let statusTimer = 0;
+
+function describeFailure(data) {
+  const detail = data?.detail;
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (Array.isArray(detail) && typeof detail[0]?.msg === "string") {
+    return detail[0].msg;
+  }
+  return "Request failed.";
+}
+
+async function request(path, options = {}) {
+  const response = await fetch(path, { cache: "no-store", ...options });
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    // Non-JSON error pages are reported through the response status below.
+  }
+  if (!response.ok) {
+    const failure = new Error(describeFailure(data));
+    failure.status = response.status;
+    throw failure;
+  }
+  return data;
+}
+
+function sync() {
+  submitButton.disabled = busy || !ready || !emailInput.value.trim();
+  submitButton.textContent = busy ? "Analyzing..." : "Analyze";
+  hintLine.textContent = busy ? "Running the model..." : "";
+}
+
+function setStatusLine(text) {
+  if (statusLine.textContent !== text) {
+    statusLine.textContent = text;
+  }
+}
+
+function applyStatus(data) {
+  ready = Boolean(data.ready);
+  const state = data.state || "error";
+  if (state === "ready") {
+    setStatusLine("Local model: ready");
+  } else if (state === "error") {
+    const detail = data.error ? ` (${String(data.error).slice(0, 120)})` : "";
+    setStatusLine(`Local model: offline${detail}`);
+  } else {
+    setStatusLine("Local model: loading");
+  }
+  sync();
+}
+
+function showResult(data) {
+  const risk = data?.risk_score;
+  const seconds = data?.seconds;
+  const level = LEVEL_LABELS[data?.level];
+  if (!Number.isFinite(risk) || !level) {
+    throw new Error("Invalid response.");
+  }
+
+  const duration = Number.isFinite(seconds) ? seconds : 0;
+  scoreValue.textContent = `${risk}%`;
+  metaLine.textContent = `${level} risk, ${duration.toFixed(1)}s`;
+  resultBox.style.setProperty("--score", `${Math.max(0, Math.min(100, risk))}%`);
+  resultBox.hidden = false;
+}
+
+async function refreshStatus() {
+  clearTimeout(statusTimer);
+  try {
+    applyStatus(await request("/api/status"));
+  } catch {
+    applyStatus({ state: "error", ready: false });
+  } finally {
+    statusTimer = setTimeout(
+      refreshStatus,
+      ready ? STATUS_POLL_READY_MS : STATUS_POLL_LOADING_MS,
+    );
+  }
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submittedText = emailInput.value;
+  if (busy || !ready || !submittedText.trim()) {
+    return;
+  }
+
+  busy = true;
+  errorBox.hidden = true;
+  resultBox.hidden = true;
+  sync();
+
+  try {
+    const data = await request("/api/analyses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: submittedText }),
+    });
+    if (emailInput.value === submittedText) {
+      showResult(data);
+    }
+  } catch (failure) {
+    errorBox.textContent = failure.message;
+    errorBox.hidden = false;
+    if (failure.status === 503) {
+      refreshStatus();
+    }
+  } finally {
+    busy = false;
+    sync();
+  }
+});
+
+emailInput.addEventListener("input", () => {
+  resultBox.hidden = true;
+  errorBox.hidden = true;
+  sync();
+});
+refreshStatus();
+</script>
+</body>
+</html>
